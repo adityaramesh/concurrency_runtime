@@ -1,0 +1,1438 @@
+// functional standard header
+#pragma once
+#ifndef _FUNCTIONAL_
+#define _FUNCTIONAL_
+#ifndef RC_INVOKED
+#include <xfunctional>
+
+ #pragma pack(push,_CRT_PACKING)
+ #pragma warning(push,3)
+ #pragma push_macro("new")
+ #undef new
+
+#include <exception>
+#include <typeinfo>
+#include <tuple>	// for bind
+
+ #pragma warning(disable: 4100 4180 4244 4521 4522)
+
+_STD_BEGIN
+// IMPLEMENT mem_fn
+	// TEMPLATE FUNCTION mem_fn
+template<class _Rx,
+	class _Arg0>
+	_Call_wrapper<_Callable_pmd<_Rx _Arg0::*const, _Arg0> >
+		mem_fn(_Rx _Arg0::*const _Pmd)
+	{	// return data object wrapper
+	return (_Call_wrapper<_Callable_pmd<_Rx _Arg0::*const, _Arg0> >(_Pmd));
+	}
+
+	// TEMPLATE CLASS _Mem_fn_wrap
+template<class _Rx,
+	class _Pmf,
+	class _Arg0,
+	class... _Types>
+	class _Mem_fn_wrap
+		: public _Call_wrapper<_Callable_pmf<_Pmf, _Arg0> >,
+			public _Fun_class_base<_Rx, _Arg0 *, _Types...>
+	{	// wrap pointer to member function
+public:
+	typedef _Rx result_type;
+	typedef _Arg0 *argument_type;
+
+	_Mem_fn_wrap(_Pmf _Fx)
+		: _Call_wrapper<_Callable_pmf<_Pmf, _Arg0> >(_Fx)
+		{	// construct
+		}
+	};
+
+template<class _Rx,
+	class _Pmf,
+	class _Arg0,
+	class _Arg1>
+	class _Mem_fn_wrap<_Rx, _Pmf, _Arg0, _Arg1>
+		: public _Call_wrapper<_Callable_pmf<_Pmf, _Arg0> >,
+			public _Fun_class_base<_Rx, _Arg0 *, _Arg1>
+	{	// wrap pointer to member function, two arguments
+public:
+	typedef _Rx result_type;
+	typedef _Arg0 *first_argument_type;
+	typedef _Arg1 second_argument_type;
+
+	_Mem_fn_wrap(_Pmf _Fx)
+		: _Call_wrapper<_Callable_pmf<_Pmf, _Arg0> >(_Fx)
+		{	// construct
+		}
+	};
+
+	// TEMPLATE FUNCTION mem_fn, pointer to member function
+#define _MEM_FN_WRAP(CALL_OPT, X1, CV_OPT) \
+template<class _Rx, \
+	class _Arg0, \
+	class... _Types> \
+	_Mem_fn_wrap<_Rx, _Rx(CALL_OPT _Arg0::*)(_Types...) CV_OPT, \
+		CV_OPT _Arg0, _Types...> \
+			mem_fn(_Rx(CALL_OPT _Arg0::*_Pm)(_Types...) CV_OPT) \
+	{	/* bind to pointer to member function */ \
+	return (_Mem_fn_wrap<_Rx, _Rx(CALL_OPT _Arg0::*)(_Types...) CV_OPT, \
+		CV_OPT _Arg0, _Types...>(_Pm)); \
+	}
+
+_MEMBER_CALL_CV(_MEM_FN_WRAP, )
+#undef _MEM_FN_WRAP
+
+ #if _HAS_REF_QUALIFIER
+#define _MEM_FN_REF_WRAP(CALL_OPT, X1, CV_OPT) \
+template<class _Rx, \
+	class _Arg0, \
+	class... _Types> \
+	_Mem_fn_wrap<_Rx, _Rx(CALL_OPT _Arg0::*)(_Types...) CV_OPT&, \
+		CV_OPT _Arg0, _Types...> \
+			mem_fn(_Rx(CALL_OPT _Arg0::*_Pm)(_Types...) CV_OPT&) \
+	{	/* bind to pointer to member function */ \
+	return (_Mem_fn_wrap<_Rx, _Rx(CALL_OPT _Arg0::*)(_Types...) CV_OPT&, \
+		CV_OPT _Arg0, _Types...>(_Pm)); \
+	} \
+template<class _Rx, \
+	class _Arg0, \
+	class... _Types> \
+	_Mem_fn_wrap<_Rx, _Rx(CALL_OPT _Arg0::*)(_Types...) CV_OPT&&, \
+		CV_OPT _Arg0, _Types...> \
+			mem_fn(_Rx(CALL_OPT _Arg0::*_Pm)(_Types...) CV_OPT&&) \
+	{	/* bind to pointer to member function */ \
+	return (_Mem_fn_wrap<_Rx, _Rx(CALL_OPT _Arg0::*)(_Types...) CV_OPT&&, \
+		CV_OPT _Arg0, _Types...>(_Pm)); \
+	}
+
+_MEMBER_CALL_CV(_MEM_FN_REF_WRAP, )
+#undef _MEM_FN_REF_WRAP
+ #endif /* _HAS_REF_QUALIFIER */
+
+
+// IMPLEMENT function
+
+	// CLASS bad_function_call
+class bad_function_call
+	: public _XSTD exception
+	{	// null function pointer exception
+public:
+	explicit bad_function_call(const char * = 0) _NOEXCEPT
+		{	// construct with ignored message
+		}
+
+	virtual const char *__CLR_OR_THIS_CALL what() const _THROW0()
+		{	// return pointer to message string
+		return ("bad function call");
+		}
+	};
+
+_CRTIMP2_PURE _NO_RETURN(__CLRCALL_PURE_OR_CDECL _Xbad_function_call());
+
+	// TEMPLATE CLASS _Func_base
+template<class _Rx,
+	class... _Types>
+	class _Func_base
+	{	// abstract base for implementation types
+public:
+	typedef _Func_base<_Rx, _Types...> _Myt;
+
+	virtual _Myt *_Copy(void *) = 0;
+	virtual _Myt *_Move(void *) = 0;
+	virtual _Rx _Do_call(_Types&&...) = 0;
+	virtual const _XSTD2 type_info& _Target_type() const = 0;
+	virtual void _Delete_this(bool) = 0;
+
+	const void *_Target(const _XSTD2 type_info& _Info) const
+		{	// return pointer to stored object of type _Info
+		return (_Target_type() == _Info ? _Get() : 0);
+		}
+
+	virtual ~_Func_base() _NOEXCEPT
+		{	// destroy the object
+		}
+
+private:
+	virtual const void *_Get() const = 0;
+	};
+
+	// TEMPLATE CLASS _Func_impl
+template<class _Callable,
+	class _Alloc,
+	class _Rx,
+	class... _Types>
+	class _Func_impl
+		: public _Func_base<_Rx, _Types...>
+	{	// derived class for specific implementation types
+public:
+	typedef _Func_impl<_Callable, _Alloc, _Rx, _Types...> _Myt;
+	typedef _Func_base<_Rx, _Types...> _Mybase;
+	typedef typename _Alloc::template rebind<_Func_impl>::other _Myalty;
+
+	_Func_impl(const _Func_impl& _Right)
+		: _Callee(_Right._Callee),
+			_Myal(_Right._Myal)
+		{	// copy construct
+		}
+
+	_Func_impl(_Func_impl& _Right)
+		: _Callee(_Right._Callee),
+			_Myal(_Right._Myal)
+		{	// copy construct
+		}
+
+	_Func_impl(_Func_impl&& _Right)
+		: _Callee(_STD forward<_Callable>(_Right._Callee)),
+			_Myal(_Right._Myal)
+		{	// move construct
+		}
+
+	_Func_impl(typename _Callable::_MyTy&& _Val,
+		const _Myalty& _Ax = _Myalty())
+		: _Callee(_STD forward<typename _Callable::_MyTy>(_Val)), _Myal(_Ax)
+		{	// construct
+		}
+
+	template<class _Other>
+		_Func_impl(_Other&& _Val,
+			const typename enable_if<!is_same<_Myt,
+				typename remove_cv<
+					typename remove_reference<_Other>::type>::type>::value,
+				_Myalty>::type& _Ax = _Myalty())
+		: _Callee(_STD forward<_Other>(_Val)), _Myal(_Ax)
+		{	// construct
+		}
+
+	virtual _Mybase *_Copy(void *_Where)
+		{	// return clone of *this
+		if (_Where == 0)
+			_Where = _Myal.allocate(1);
+		::new (_Where) _Myt(*this);
+		return ((_Mybase *)_Where);
+		}
+
+	virtual _Mybase *_Move(void *_Where)
+		{	// return clone of *this
+		if (_Where == 0)
+			_Where = _Myal.allocate(1);
+		::new (_Where) _Myt(_STD move(*this));
+		return ((_Mybase *)_Where);
+		}
+
+	virtual ~_Func_impl() _NOEXCEPT
+		{	// destroy the object
+		}
+
+	virtual _Rx _Do_call(_Types&&... _Args)
+		{	// call wrapped function
+		return (_Callee.template _ApplyX<_Rx>(
+			_STD forward<_Types>(_Args)...));
+		}
+
+	virtual const _XSTD2 type_info& _Target_type() const
+		{	// return type information for stored object
+		return (typeid(typename _Callable::_MyTy));
+		}
+
+private:
+	virtual const void *_Get() const
+		{	// return address of stored object
+		return (reinterpret_cast<const void*>(&_Callee._Get()));
+		}
+
+	virtual void _Delete_this(bool _Deallocate)
+		{	// destroy self
+		_Myalty _Al = _Myal;
+		_Al.destroy(this);
+		if (_Deallocate)
+			_Al.deallocate(this, 1);
+		}
+
+	_Callable _Callee;
+	_Myalty _Myal;
+	};
+
+	// TEMPLATE FUNCTION _Test_callable
+template<class _Fty>
+	class function;
+
+template<class _Ty>
+	struct _Testable_callable1
+		: _Cat_base<is_member_pointer<_Ty>::value || (is_pointer<_Ty>::value
+			&& is_function<typename remove_pointer<_Ty>::type>::value)>
+	{	// member pointers and function pointers are testable
+	};
+
+template<class _Fty>
+	struct _Testable_callable1<function<_Fty> >
+		: true_type
+	{	// std::function is testable
+	};
+
+template<class _Ty>
+	struct _Testable_callable
+		: _Testable_callable1<typename remove_cv<_Ty>::type>
+	{	// determine whether std::function must test _Ty
+	};
+
+template<class _Ty> inline
+	bool _Test_callable(_Ty& _Arg, true_type)
+	{	// std::function must store non-null testable callable objects
+	return (!!_Arg);
+	}
+
+template<class _Ty> inline
+	bool _Test_callable(_Ty&, false_type)
+	{	// std::function must store arbitrary callable objects
+	return (true);
+	}
+
+template<class _Ty> inline
+	bool _Test_callable(_Ty& _Arg)
+	{	// determine whether std::function must store _Arg
+	return (_Test_callable(_Arg, _Testable_callable<_Ty>()));
+	}
+
+	// TEMPLATE CLASS _Func_class
+template<class _Ret,
+	class... _Types>
+	class _Func_class
+		: public _Fun_class_base<_Ret, _Types...>
+	{	// implement function template
+public:
+	typedef _Func_class<_Ret, _Types...> _Myt;
+	typedef _Func_base<_Ret, _Types...> _Ptrt;
+	typedef _Ret result_type;
+
+	_Func_class()
+		: _Impl(0)
+		{	// construct without stored object
+		}
+
+	_Ret operator()(_Types... _Args) const
+		{	// call through stored object
+		if (_Impl == 0)
+			_Xbad_function_call();
+		return (_Impl->_Do_call(_STD forward<_Types>(_Args)...));
+		}
+
+	bool _Empty() const
+		{	// return true if no stored object
+		return (_Impl == 0);
+		}
+
+	~_Func_class() _NOEXCEPT
+		{	// destroy the object
+		_Tidy();
+		}
+
+protected:
+	void _Reset()
+		{	// remove stored object
+		_Set(0);
+		}
+
+	void _Reset(const _Myt& _Right)
+		{	// copy _Right's stored object
+		if (_Right._Impl == 0)
+			_Set(0);
+		else if (_Right._Local())
+			_Set(_Right._Impl->_Copy((void *)&_Space));
+		else
+			_Set(_Right._Impl->_Copy(0));
+		}
+
+	void _Resetm(_Myt&& _Right)
+		{	// move _Right's stored object
+		if (_Right._Impl == 0)
+			_Set(0);
+		else if (_Right._Local())
+			{	// move and tidy
+			_Set(_Right._Impl->_Move((void *)&_Space));
+			_Right._Tidy();
+			}
+		else
+			{	// steal from _Right
+			_Set(_Right._Impl);
+			_Right._Set(0);
+			}
+		}
+
+#define _FUNC_CLASS_RESET_PF(CALL_OPT, X1) \
+	template<class _Fret, \
+		class... _Ftypes> \
+		void _Reset(_Fret (CALL_OPT *const _Val)(_Ftypes&&... _Fargs)) \
+		{	/* store copy of _Val */ \
+		_Reset_alloc(_Val, allocator<_Myt>()); \
+		} \
+	template<class _Fret, \
+		class... _Ftypes, \
+		class _Alloc> \
+		void _Reset_alloc(_Fret (CALL_OPT *const _Val)(_Ftypes&&... _Fargs), \
+			_Alloc _Ax) \
+		{	/* store copy of _Val with allocator */ \
+		typedef _Callable_fun<_Fret (CALL_OPT *const)(_Ftypes&&...)> \
+			_MyWrapper; \
+		typedef _Func_impl<_MyWrapper, _Alloc, _Ret, _Types...> _Myimpl; \
+		_Do_alloc<_Myimpl>(_Val, _Ax); \
+		}
+
+_NON_MEMBER_CALL(_FUNC_CLASS_RESET_PF, )
+#undef _FUNC_CLASS_RESET_PF
+
+	template<class _Fty>
+		void _Reset(_Fty&& _Val)
+		{	// store copy of _Val
+		_Reset_alloc(_STD forward<_Fty>(_Val), allocator<_Myt>());
+		}
+
+	template<class _Fty,
+		class _Alloc>
+		void _Reset_alloc(_Fty&& _Val, _Alloc _Ax)
+		{	// store copy of _Val with allocator
+		typedef _Callable_obj<typename decay<_Fty>::type>
+			_MyWrapper;
+		typedef _Func_impl<_MyWrapper, _Alloc, _Ret, _Types...> _Myimpl;
+
+		_Do_alloc<_Myimpl>(_STD forward<_Fty>(_Val), _Ax);
+		}
+
+	template<class _Fret,
+		class _Farg0>
+		void _Reset(_Fret _Farg0::*const _Val)
+		{	// store copy of _Val
+		_Reset_alloc(_Val, allocator<_Myt>());
+		}
+
+	template<class _Fret,
+		class _Farg0,
+		class _Alloc>
+		void _Reset_alloc(_Fret _Farg0::*const _Val, _Alloc _Ax)
+		{	// store copy of _Val with allocator
+		typedef _Callable_pmd<_Fret _Farg0::*const, _Farg0>
+			_MyWrapper;
+		typedef _Func_impl<_MyWrapper, _Alloc, _Ret, _Farg0>
+			_Myimpl;
+
+		_Do_alloc<_Myimpl>(_Val, _Ax);
+		}
+
+#define _FUNC_CLASS_RESET_PMF(CALL_OPT, X1, CV_OPT) \
+	template<class _Fret, \
+		class _Farg0, \
+		class... _Ftypes> \
+		void _Reset(_Fret (CALL_OPT _Farg0::*const _Val)(_Ftypes...) CV_OPT) \
+		{	/* store copy of _Val */ \
+		_Reset_alloc(_Val, allocator<_Myt>()); \
+		} \
+	template<class _Fret, \
+		class _Farg0, \
+		class... _Ftypes, \
+		class _Alloc> \
+		void _Reset_alloc(_Fret (CALL_OPT _Farg0::*const _Val)(_Ftypes...) \
+			CV_OPT, _Alloc _Ax) \
+		{	/* store copy of _Val with allocator */ \
+		typedef _Callable_pmf< \
+			_Fret (CALL_OPT _Farg0::*const)(_Ftypes...) CV_OPT, _Farg0> \
+				_MyWrapper; \
+		typedef _Func_impl<_MyWrapper, _Alloc, _Ret, _Farg0, _Ftypes...> \
+			_Myimpl; \
+		_Do_alloc<_Myimpl>(_Val, _Ax); \
+		}
+
+_MEMBER_CALL_CV(_FUNC_CLASS_RESET_PMF, )
+#undef _FUNC_CLASS_RESET_PMF
+
+	void _Tidy()
+		{	// clean up
+		if (_Impl != 0)
+			{	// destroy callable object and maybe delete it
+			_Impl->_Delete_this(!_Local());
+			_Impl = 0;
+			}
+		}
+
+	void _Swap(_Myt& _Right)
+		{	// swap contents with contents of _Right
+		if (this == &_Right)
+			;	// same object, do nothing
+		else if (!_Local() && !_Right._Local())
+			_STD swap(_Impl, _Right._Impl);	// just swap pointers
+		else
+			{	// do three-way copy
+			_Myt _Temp;
+			_Temp._Resetm(_STD forward<_Myt>(*this));
+			_Tidy();
+			_Resetm(_STD forward<_Myt>(_Right));
+			_Right._Tidy();
+			_Right._Resetm(_STD forward<_Myt>(_Temp));
+			}
+		}
+
+	const _XSTD2 type_info& _Target_type() const
+		{	// return type information for stored object
+		return (_Impl ? _Impl->_Target_type() : typeid(void));
+		}
+
+	const void *_Target(const _XSTD2 type_info& _Info) const
+		{	// return pointer to stored object
+		return (_Impl ? _Impl->_Target(_Info) : 0);
+		}
+
+private:
+	template<class _Myimpl,
+		class _Fty,
+		class _Alloc>
+		void _Do_alloc(_Fty&& _Val,
+			_Alloc _Ax)
+		{	// store copy of _Val with allocator
+		if (!_Test_callable(_Val))
+			{	// null member pointer/function pointer/std::function
+			_Set(0);
+			return;
+			}
+		void *_Vptr = 0;
+		_Myimpl *_Ptr = 0;
+		if (sizeof (_Myimpl) <= sizeof (_Space))
+			{	// small enough, allocate locally
+			_Vptr = &_Space;
+			_Ptr = ::new (_Vptr) _Myimpl(_STD forward<_Fty>(_Val));
+			}
+		else
+			{	// use allocator
+			typename _Alloc::template rebind<_Myimpl>::other _Al = _Ax;
+			_Vptr = _Al.allocate(1);
+			_Ptr = ::new (_Vptr) _Myimpl(_STD forward<_Fty>(_Val), _Al);
+			}
+		_Set(_Ptr);
+		}
+
+	void _Set(_Ptrt *_Ptr)
+		{	// store pointer to object
+		_Impl = _Ptr;
+		}
+
+	bool _Local() const
+		{	// test for locally stored copy of object
+		return ((void *)_Impl == (void *)&_Space);
+		}
+
+	typedef void (*_Pfnty)();
+	union
+		{	// storage for small wrappers
+		_Pfnty _Pfn[3];
+		void *_Pobj[3];
+		long double _Ldbl;	// for maximum alignment
+		char _Alias[3 * sizeof (void *)];	// to permit aliasing
+		} _Space;
+
+	_Ptrt *_Impl;
+	};
+
+	// TEMPLATE CLASS _Get_function_impl
+template<class _Tx>
+	struct _Get_function_impl;
+
+#define _GET_FUNCTION_IMPL(CALL_OPT, X1) \
+template<class _Ret, \
+	class... _Types> \
+	struct _Get_function_impl<_Ret CALL_OPT (_Types...)> \
+	{	/* determine type from argument list */ \
+	typedef _Func_class<_Ret, _Types...> type; \
+	};
+
+_NON_MEMBER_CALL(_GET_FUNCTION_IMPL, )
+#undef _GET_FUNCTION_IMPL
+
+
+	// TEMPLATE CLASS function
+template<class _Fty>
+	class function
+		: public _Get_function_impl<_Fty>::type
+	{	// wrapper for callable objects
+public:
+	typedef function<_Fty> _Myt;
+	typedef typename _Get_function_impl<_Fty>::type _Mybase;
+
+	function() _NOEXCEPT
+		{	// construct empty function wrapper
+		this->_Reset();
+		}
+
+	function(nullptr_t) _NOEXCEPT
+		{	// construct empty function wrapper from null pointer
+		this->_Reset();
+		}
+
+	function(const _Myt& _Right)
+		{	// construct holding copy of _Right
+		this->_Reset((const _Mybase&)_Right);
+		}
+
+	function(_Myt& _Right)
+		{	// construct holding copy of _Right
+		this->_Reset((const _Mybase&)_Right);
+		}
+
+	template<class _Fx>
+		function(const _Fx& _Func)
+		{	// construct wrapper holding copy of _Func
+		this->_Reset(_Func);
+		}
+
+	template<class _Fx,
+		class _Alloc>
+		function(_Fx _Func, const _Alloc& _Ax)
+		{	// construct wrapper holding copy of _Func, allocator (old style)
+		this->_Reset_alloc(_Func, _Ax);
+		}
+
+	template<class _Alloc>
+		function(allocator_arg_t, const _Alloc&) _NOEXCEPT
+		{	// construct empty function wrapper, allocator
+		this->_Reset();
+		}
+
+	template<class _Alloc>
+		function(allocator_arg_t, const _Alloc&, nullptr_t) _NOEXCEPT
+		{	// construct empty function wrapper from null pointer, allocator
+		this->_Reset();
+		}
+
+	template<class _Alloc>
+		function(allocator_arg_t, const _Alloc& _Ax, const _Myt& _Right)
+		{	// construct wrapper holding copy of _Right, allocator
+		this->_Reset_alloc(_Right, _Ax);
+		}
+
+	template<class _Fx,
+		class _Alloc>
+		function(allocator_arg_t, const _Alloc& _Ax, _Fx _Func)
+		{	// construct wrapper holding copy of _Func, allocator (new style)
+		this->_Reset_alloc(_Func, _Ax);
+		}
+
+	template<class _Fx>
+		function(reference_wrapper<_Fx> _Func)
+		{	// construct wrapper holding reference to _Func
+		this->_Reset(_Func);
+		}
+
+	template<class _Fx,
+		class _Alloc>
+		function(reference_wrapper<_Fx> _Func, const _Alloc& _Ax)
+		{	// construct wrapper holding reference to _Func
+		this->_Reset_alloc(_Func, _Ax);
+		}
+
+	~function() _NOEXCEPT
+		{	// destroy the object
+		this->_Tidy();
+		}
+
+	_Myt& operator=(const _Myt& _Right)
+		{	// assign _Right
+		if (this != &_Right)
+			{	// clean up and copy
+			this->_Tidy();
+			this->_Reset((const _Mybase&)_Right);
+			}
+		return (*this);
+		}
+
+	_Myt& operator=(_Myt& _Right)
+		{	// assign _Right
+		if (this != &_Right)
+			{	// clean up and copy
+			this->_Tidy();
+			this->_Reset((const _Mybase&)_Right);
+			}
+		return (*this);
+		}
+
+	function(const _Myt&& _Right)
+		{	// construct holding copy of _Right
+		this->_Reset((const _Mybase&)_Right);
+		}
+
+	function(_Myt&& _Right)
+		{	// construct holding moved copy of _Right
+		this->_Resetm(_STD forward<_Myt>(_Right));
+		}
+
+	template<class _Alloc>
+		function(allocator_arg_t, const _Alloc& _Al, _Myt&& _Right)
+		{	// construct wrapper holding moved copy of _Right, allocator
+		this->_Resetm(_STD forward<_Myt>(_Right));
+		}
+
+	template<class _Fx>
+		function(_Fx&& _Func)
+		{	// construct wrapper holding moved _Func
+		this->_Reset(_STD forward<_Fx>(_Func));
+		}
+
+	_Myt& operator=(_Myt&& _Right)
+		{	// assign by moving _Right
+		if (this != &_Right)
+			{	// clean up and copy
+			this->_Tidy();
+			this->_Resetm(_STD forward<_Myt>(_Right));
+			}
+		return (*this);
+		}
+
+	template<class _Fx>
+		_Myt& operator=(_Fx&& _Func)
+		{	// move function object _Func
+		this->_Tidy();
+		this->_Reset(_STD forward<_Fx>(_Func));
+		return (*this);
+		}
+
+	template<class _Fx,
+		class _Alloc>
+		void assign(_Fx&& _Func, const _Alloc& _Ax)
+		{	// construct wrapper holding copy of _Func
+		this->_Tidy();
+		this->_Reset_alloc(_STD forward<_Fx>(_Func), _Ax);
+		}
+
+	function& operator=(nullptr_t)
+		{	// clear function object
+		this->_Tidy();
+		this->_Reset();
+		return (*this);
+		}
+
+	template<class _Fx>
+		_Myt& operator=(reference_wrapper<_Fx> _Func) _NOEXCEPT
+		{	// assign wrapper holding reference to _Func
+		this->_Tidy();
+		this->_Reset(_Func);
+		return (*this);
+		}
+
+	template<class _Fx,
+		class _Alloc>
+		void assign(reference_wrapper<_Fx> _Func, const _Alloc& _Ax)
+		{	// construct wrapper holding reference to _Func
+		this->_Tidy();
+		this->_Reset_alloc(_Func, _Ax);
+		}
+
+	void swap(_Myt& _Right) _NOEXCEPT
+		{	// swap with _Right
+		this->_Swap(_Right);
+		}
+
+	explicit operator bool() const _NOEXCEPT
+		{	// test if wrapper holds null function pointer
+		return (!this->_Empty());
+		}
+
+	const _XSTD2 type_info& target_type() const _NOEXCEPT
+		{	// return type_info object for target type
+		return (this->_Target_type());
+		}
+
+	template<class _Fty2>
+		_Fty2 *target() _NOEXCEPT
+		{	// return pointer to target object
+		return ((_Fty2*)this->_Target(typeid(_Fty2)));
+		}
+
+	template<class _Fty2>
+		const _Fty2 *target() const _NOEXCEPT
+		{	// return pointer to target object
+		return ((const _Fty2*)this->_Target(typeid(_Fty2)));
+		}
+	};
+
+	// TEMPLATE FUNCTION swap
+template<class _Fty>
+	void swap(function<_Fty>& _Left, function<_Fty>& _Right)
+	{	// swap contents of _Left with contents of _Right
+	_Left.swap(_Right);
+	}
+
+	// TEMPLATE NULL POINTER COMPARISONS
+template<class _Fty>
+	bool operator==(const function<_Fty>& _Other,
+		nullptr_t) _NOEXCEPT
+	{	// compare to null pointer
+	return (!_Other);
+	}
+
+template<class _Fty>
+	bool operator==(nullptr_t _Npc,
+		const function<_Fty>& _Other) _NOEXCEPT
+	{	// compare to null pointer
+	return (operator==(_Other, _Npc));
+	}
+
+template<class _Fty>
+	bool operator!=(const function<_Fty>& _Other,
+		nullptr_t _Npc) _NOEXCEPT
+	{	// compare to null pointer
+	return (!operator==(_Other, _Npc));
+	}
+
+template<class _Fty>
+	bool operator!=(nullptr_t _Npc,
+		const function<_Fty>& _Other) _NOEXCEPT
+	{	// compare to null pointer
+	return (!operator==(_Other, _Npc));
+	}
+
+// IMPLEMENT bind
+	// PLACEHOLDERS
+template<int _Nx>
+	class _Ph
+	{	// placeholder
+	};
+
+template<class _Tx>
+	struct is_placeholder
+		: integral_constant<int, 0>
+	{	// template to indicate that _Tx is not a placeholder
+	};
+
+template<int _Nx>
+	struct is_placeholder<_Ph<_Nx> >
+		: integral_constant<int, _Nx>
+	{	// template specialization to indicate that _Ph<_Nx> is a placeholder
+	};
+
+	// TEMPLATE CLASS is_bind_expression
+template<class _Tx>
+	struct is_bind_expression
+		: false_type
+	{	// template to indicate that _Tx is not a bind expression
+	};
+
+	// TEMPLATE CLASS _Notforced
+struct _Notforced
+	{	// operator() returns result_of<...>::type
+	};
+
+	// TEMPLATE CLASS is_bind_expression
+template<bool _Forced,
+	class _Ret,
+	class _Fun,
+	class... _Types>
+	class _Bind;
+
+#define _IS_BIND_EXPRESSION(CV_OPT) \
+template<bool _Forced, \
+	class _Ret, \
+	class _Fun, \
+	class... _Types> \
+	struct is_bind_expression<CV_OPT \
+		_Bind<_Forced, _Ret, _Fun, _Types...> > \
+		: true_type \
+	{	/* specialization to indicate a bind expression */ \
+	};
+
+_CLASS_DEFINE_CV(_IS_BIND_EXPRESSION)
+#undef _IS_BIND_EXPRESSION
+
+
+	// TEMPLATE CLASS _Is_reference_wrapper
+template<class _Barg>
+	struct _Is_reference_wrapper0
+		: false_type
+	{	// false in general
+	};
+
+template<class _Barg>
+	struct _Is_reference_wrapper0<reference_wrapper<_Barg> >
+		: true_type
+	{	// true if reference wrapper
+	};
+
+template<class _Barg>
+	struct _Is_reference_wrapper
+		: _Is_reference_wrapper0<typename decay<_Barg>::type>
+		{	// true if reference_wrapper
+		};
+
+	// TEMPLATE CLASS _Classify_barg
+enum _Barg_type
+	{	// classifications
+	_Reference_wrapper,
+	_Placeholder,
+	_Bind_expression,
+	_UDT
+	};
+
+template<class _Barg>
+	struct _Classify_barg
+		: integral_constant<_Barg_type,
+			_Is_reference_wrapper<_Barg>::value ? _Reference_wrapper
+			: 0 < is_placeholder<_Barg>::value ? _Placeholder
+			: is_bind_expression<_Barg>::value ? _Bind_expression
+			: _UDT>
+	{	// classifies expression
+	};
+
+	// TEMPLATE CLASS _Fixarg_ret_base
+template<_Barg_type,
+	class _Funx,
+	class _Barg,
+	class _Ftuple>
+	struct _Fixarg_ret_base;
+
+template<class _Funx,
+	class _Barg,
+	class _Ftuple>
+	struct _Fixarg_ret_base<_Reference_wrapper, _Funx, _Barg, _Ftuple>
+	{	// return type for reference_wrapper
+	typedef typename add_reference<typename _Barg::type>::type type;
+	};
+
+template<class _Funx,
+	class _Barg,
+	class _Ftuple>
+	struct _Fixarg_ret_base<_Placeholder, _Funx, _Barg, _Ftuple>
+	{	// return type for placeholder
+	typedef typename add_reference<
+		typename tuple_element<is_placeholder<_Barg>::value - 1,
+			_Ftuple>::type>::type type;
+	};
+
+template<class _Bind_t,
+	class _Ftuple,
+	class _Indexes>
+	struct _Call_ret;
+
+template<class _Bind_t,
+	class _Ftuple,
+	size_t... _Findexes>
+	struct _Call_ret<_Bind_t, _Ftuple, _Arg_idx<_Findexes...> >
+	{	// get return type for nested bind
+	typedef typename result_of<_Bind_t(
+		typename tuple_element<_Findexes, _Ftuple>::_Rtype...)>::type type;
+	};
+
+template<class _Funx,
+	class _Barg,
+	class... _Ftypes>
+	struct _Fixarg_ret_base<_Bind_expression, _Funx, _Barg,
+		tuple<_Ftypes...> >
+	{	// return type for nested bind
+	typedef typename _Call_ret<_Barg, tuple<_Ftypes...>,
+		typename _Make_arg_idx<_Ftypes...>::type>::type type;
+	};
+
+
+template<class _Funx,
+	class _Barg,
+	class _Ftuple>
+	struct _Fixarg_ret_base<_UDT, _Funx, _Barg, _Ftuple>
+	{	// return type for plain user-defined type
+	typedef typename _Copy_cv<_Barg, _Funx>::type type;
+	};
+
+	// TEMPLATE CLASS _Fixarg_ret
+template<class _Funx,
+	class _Barg,
+	class _Ftuple>
+	struct _Fixarg_ret
+		: _Fixarg_ret_base<
+			_Classify_barg<typename remove_reference<_Barg>::type>::value,
+			_Funx,
+			typename remove_reference<_Barg>::type,
+			_Ftuple>
+	{	// classifies arguments
+	};
+
+	// TEMPLATE CLASS _Do_call_ret
+template<bool _Forced,
+	class _Ret,
+	class _Funx,
+	class _Btuple,
+	class _Ftuple,
+	class _Indexes>
+	struct _Do_call_ret;
+
+template<bool _Forced,
+	class _Ret,
+	class _Funx,
+	class _Btuple,
+	class _Ftuple,
+	size_t... _Bindexes>
+	struct _Do_call_ret<
+		_Forced, _Ret, _Funx, _Btuple, _Ftuple, _Arg_idx<_Bindexes...> >
+	{	// generate return type from simulated call
+	typedef
+		typename result_of<
+		_Funx(
+			typename _Fixarg_ret<_Funx,
+				typename tuple_element<_Bindexes, _Btuple>::_Rtype,
+				_Ftuple
+			>::type...
+		)
+		>::type type;
+	};
+
+template<class _Ret,
+	class _Funx,
+	class _Btuple,
+	class _Ftuple,
+	size_t... _Bindexes>
+	struct _Do_call_ret<
+		true, _Ret, _Funx, _Btuple, _Ftuple, _Arg_idx<_Bindexes...> >
+	{	// use forced return type
+	typedef _Ret type;
+	};
+
+
+	// TEMPLATE CLASS _Add_result_type
+template<bool _Forced,
+	bool _Fun_has_result_type,
+	class _Ret,
+	class _Fun>
+	struct _Add_result_type
+	{	// do not define result_type
+	};
+
+template<bool _Fun_has_result_type,
+	class _Ret,
+	class _Fun>
+	struct _Add_result_type<true, _Fun_has_result_type, _Ret, _Fun>
+	{	// define result_type as forced type
+	typedef _Ret result_type;
+	};
+
+template<class _Ret,
+	class _Fun>
+	struct _Add_result_type<false, true, _Ret, _Fun>
+	{	// define result type as nested in _Fun
+	typedef typename _Fun::result_type result_type;
+	};
+
+//	TEMPLATE FUNCTION _Fixarg
+template<class _Funx,
+	class _Barg,
+	class _Btuple,
+	class _Ftuple> inline
+	typename enable_if<_Is_reference_wrapper<_Barg>::value,
+		typename _Fixarg_ret<_Funx, _Barg, _Ftuple>::type>::type
+	_Fixarg(_Funx&&, _Btuple& _Mybargs,
+		_Ftuple& _Myfargs,
+		_Barg& _Arg)
+	{	// convert a reference_wrapper argument
+	return (_Arg.get());
+	}
+
+template<class _Funx,
+	class _Barg,
+	class _Btuple,
+	class _Ftuple> inline
+	typename enable_if<0 < is_placeholder<_Barg>::value,
+		typename _Fixarg_ret<_Funx, _Barg, _Ftuple>::type>::type
+	_Fixarg(_Funx&&, _Btuple& _Mybargs,
+		_Ftuple& _Myfargs,
+		_Barg& _Arg)
+	{	// convert a placeholder argument
+	const int _Nx = is_placeholder<_Barg>::value - 1;
+	return (_STD get<_Nx>(_Myfargs));
+	}
+
+template<class _Ret,
+	class _Barg,
+	class... _Ftypes,
+	size_t... _Findexes> inline
+	_Ret _Do_bind_call(_Barg& _Arg,
+		tuple<_Ftypes...>& _Myfargs,
+		_Arg_idx<_Findexes...>)
+	{	// call nested _Bind argument
+	return (_Arg(_STD get<_Findexes>(_Myfargs)...));
+	}
+
+template<class _Funx,
+	class _Barg,
+	class _Btuple,
+	class... _Ftypes> inline
+	typename enable_if<is_bind_expression<_Barg>::value,
+		typename _Fixarg_ret<_Funx,
+			typename _Copy_cv<_Barg, _Funx>::type,
+			tuple<_Ftypes...> >::type>::type
+	_Fixarg(_Funx&&, _Btuple&,
+		tuple<_Ftypes...>& _Myfargs,
+		_Barg& _Arg)
+	{	// convert a nested _Bind argument
+	typedef typename _Fixarg_ret<_Funx,
+		typename _Copy_cv<_Barg, _Funx>::type,
+		tuple<_Ftypes...> >::type _Ret;
+	return (_Do_bind_call<_Ret>(_Arg, _Myfargs,
+		typename _Make_arg_idx<_Ftypes...>::type()));
+	}
+
+
+template<class _Funx,
+	class _Barg,
+	class _Btuple,
+	class _Ftuple> inline
+	typename enable_if<!is_bind_expression<_Barg>::value
+			&& !is_placeholder<_Barg>::value
+			&& !_Is_reference_wrapper<_Barg>::value,
+			typename _Fixarg_ret<_Funx, _Barg, _Ftuple>::type>::type
+	_Fixarg(_Funx&&, _Btuple& _Mybargs,
+		_Ftuple& _Myfargs,
+		_Barg& _Arg)
+	{	// convert a plain argument
+	return (_Arg);
+	}
+
+	// TEMPLATE CLASS _Bind
+template<bool _Forced,
+	class _Ret,
+	class _Fun,
+	class... _Types>
+	class _Bind
+		: public _Add_result_type<_Forced,
+			_Has_result_type<
+				typename decay<_Fun>::type>::type::value,
+			_Ret,
+			typename decay<_Fun>::type>
+	{	// wrap bound function and arguments
+public:
+	typedef typename decay<_Fun>::type _Funx;
+	typedef tuple<typename decay<_Types>::type...> _Bargs;
+
+	template<class _Fun2,
+		class... _Types2>
+		explicit _Bind(_Fun2&& _Fx, _Types2&&... _Args)
+		: _Myfun(_STD forward<_Fun2>(_Fx)),
+			_Mybargs(_STD forward<_Types2>(_Args)...)
+		{	// construct from functor and arguments
+		}
+
+	_Bind(const _Bind& _Right)
+		: _Myfun(_Right._Myfun),
+			_Mybargs(_Right._Mybargs)
+		{	// construct by copying
+		}
+
+	_Bind(_Bind& _Right)
+		: _Myfun(_Right._Myfun),
+			_Mybargs(_Right._Mybargs)
+		{	// construct by copying
+		}
+
+	_Bind(_Bind&& _Right)
+		: _Myfun(_STD forward<_Funx>(_Right._Myfun)),
+			_Mybargs(_STD forward<_Bargs>(_Right._Mybargs))
+		{	// construct by moving
+		}
+
+	template<class... _Ftypes>
+		typename _Do_call_ret<_Forced, _Ret, _Funx, _Bargs,
+			tuple<_Ftypes&...>,
+			typename _Make_arg_idx<_Types...>::type>::type
+		operator()(_Ftypes&&... _Fargs)
+		{	// evaluate the called function
+		return (_Do_call(_STD tie(_Fargs...),
+			typename _Make_arg_idx<_Types...>::type()));
+		}
+
+	template<class... _Ftypes,
+		size_t... _Bindexes>
+		typename _Do_call_ret<_Forced, _Ret, _Funx, _Bargs,
+			tuple<_Ftypes&...>,
+			_Arg_idx<_Bindexes...> >::type
+		_Do_call(tuple<_Ftypes&...> _Myfargs,
+			_Arg_idx<_Bindexes...>)
+		{	// call the stored functor with bound arguments
+		return (_Myfun(_Fixarg(_Myfun, _Mybargs, _Myfargs,
+			_STD get<_Bindexes>(_Mybargs))...));
+		}
+
+private:
+	_Funx _Myfun;	// the stored functor
+	_Bargs _Mybargs;	// the bound arguments
+	};
+
+	// TEMPLATE CLASS _Pmd_wrap
+template<class _Pmd_t,
+	class _Rx,
+	class _Farg0>
+	struct _Pmd_wrap
+	{	// wrap a pointer to member data
+//	typedef _Rx _Farg0::* _Pmd_t;
+
+	_Pmd_wrap(const _Pmd_t& _Pmd)
+		: _Mypmd(_Pmd)
+		{	// construct with wrapped pointer
+		}
+
+#define _REFWRAP_IMPL_PMD(CV_OPT) \
+	CV_OPT _Rx& operator()(CV_OPT _Farg0& _Fnobj) const \
+		{	/* get the data */ \
+		return (_Fnobj.*_Mypmd); \
+		}
+
+_CLASS_DEFINE_CV(_REFWRAP_IMPL_PMD)
+#undef _REFWRAP_IMPL_PMD
+
+private:
+	_Pmd_t _Mypmd;
+	};
+
+template<class _Pmd_t,
+	class _Rx,
+	class _Farg0,
+	class _Arg0,
+	class... _Rest>
+	struct _Result_of<_Pmd_wrap<_Pmd_t, _Rx, _Farg0>, _Arg0, _Rest...>
+	{	// template to determine result of call operation
+	typedef typename _Copy_cv<_Rx, _Arg0>::type type;
+	};
+
+template<class _Pmd_t,
+	class _Rx,
+	class _Farg0,
+	class _Arg0,
+	class... _Rest>
+	struct _Result_of<_Pmd_wrap<_Pmd_t, _Rx, _Farg0>,
+		reference_wrapper<_Arg0>&, _Rest...>
+	{	// template to determine result of call operation
+	typedef typename _Copy_cv<_Rx, _Arg0>::type type;
+	};
+
+	// TEMPLATE CLASS _Pmf_wrap
+template<class _Pmf_t,
+	class _Rx,
+	class _Farg0,
+	class... _Ftypes>
+	struct _Pmf_wrap
+	{	// wrap a pointer to member function
+//	typedef _Rx (_Farg0::* _Pmf_t)(_Ftypes...);
+
+	_Pmf_wrap(const _Pmf_t& _Pmf)
+		: _Mypmf(_Pmf)
+		{	// construct with wrapped pointer
+		}
+
+	_Rx operator()(_Farg0& _Fnobj, _Ftypes... _Fargs) const
+		{	// call the function
+		return ((_Fnobj.*_Mypmf)(_STD forward<_Ftypes>(_Fargs)...));
+		}
+
+	_Rx operator()(const _Farg0& _Fnobj, _Ftypes... _Fargs) const
+		{	// call the function
+		return ((_Fnobj.*_Mypmf)(_STD forward<_Ftypes>(_Fargs)...));
+		}
+
+	_Rx operator()(_Farg0 *_Pfnobj, _Ftypes... _Fargs) const
+		{	// call the function
+		return ((_Pfnobj->*_Mypmf)(_STD forward<_Ftypes>(_Fargs)...));
+		}
+
+	_Rx operator()(const _Farg0 *_Pfnobj, _Ftypes... _Fargs) const
+		{	// call the function
+		return ((_Pfnobj->*_Mypmf)(_STD forward<_Ftypes>(_Fargs)...));
+		}
+
+	template<class _Wrapper>
+		_Rx operator()(_Wrapper& _Ptr, _Ftypes... _Fargs) const
+		{	// call the function
+		return (((*_Ptr).*_Mypmf)(_STD forward<_Ftypes>(_Fargs)...));
+		}
+
+	template<class _Wrapper>
+		_Rx operator()(const _Wrapper& _Ptr, _Ftypes... _Fargs) const
+		{	// call the function
+		return (((*_Ptr).*_Mypmf)(_STD forward<_Ftypes>(_Fargs)...));
+		}
+
+private:
+	_Pmf_t _Mypmf;
+	};
+
+	// TEMPLATE FUNCTION bind (implicit return type)
+template<class _Fun,
+	class... _Types> inline
+	_Bind<false, void, _Fun, _Types...>
+		bind(_Fun&& _Fx, _Types&&... _Args)
+	{	// bind a function object
+	return (_Bind<false, void, _Fun, _Types...>(
+		_STD forward<_Fun>(_Fx), _STD forward<_Types>(_Args)...));
+	}
+
+template<class _Rx,
+	class... _Ftypes,
+	class... _Types> inline
+	_Bind<true, _Rx, _Rx (* const)(_Ftypes...), _Types...>
+		bind(_Rx (*_Pfx)(_Ftypes...), _Types&&... _Args)
+	{	// bind a function pointer
+	return (_Bind<true, _Rx, _Rx (* const)(_Ftypes...), _Types...>(
+		_Pfx, _STD forward<_Types>(_Args)...));
+	}
+
+template<class _Rx,
+	class _Farg0,
+	class... _Types> inline
+	_Bind<false, void, _Pmd_wrap<_Rx _Farg0::*, _Rx, _Farg0>,
+		_Types...>
+		bind(_Rx _Farg0::* const _Pmd, _Types&&... _Args)
+	{	// bind a wrapped member object pointer
+	return (_Bind<false, void,
+		_Pmd_wrap<_Rx _Farg0::*, _Rx, _Farg0>, _Types...>(
+		_Pmd_wrap<_Rx _Farg0::*, _Rx, _Farg0>(_Pmd),
+			_STD forward<_Types>(_Args)...));
+	}
+
+#define _IMPLICIT_PMF_WRAP(CALL_OPT, X1, CV_OPT) \
+template<class _Rx, \
+	class _Farg0, \
+	class... _Ftypes, \
+	class... _Types> inline \
+	_Bind<true, _Rx, \
+		_Pmf_wrap<_Rx (CALL_OPT _Farg0::*)(_Ftypes...) CV_OPT, \
+			_Rx, _Farg0, _Ftypes...>, \
+		_Types...> \
+		bind(_Rx (CALL_OPT _Farg0::* const _Pmf)(_Ftypes...) CV_OPT, \
+			_Types&&... _Args) \
+	{	/* bind a wrapped CV_OPT member function pointer */ \
+	return (_Bind<true, _Rx, \
+		_Pmf_wrap<_Rx (CALL_OPT _Farg0::*)(_Ftypes...) CV_OPT, \
+			_Rx, _Farg0, _Ftypes...>, \
+		_Types...>( \
+		_Pmf_wrap<_Rx (CALL_OPT _Farg0::*)(_Ftypes...) CV_OPT, \
+			_Rx, _Farg0, _Ftypes...>(_Pmf), \
+				_STD forward<_Types>(_Args)...)); \
+	}
+
+_MEMBER_CALL_CV(_IMPLICIT_PMF_WRAP, )
+#undef _IMPLICIT_PMF_WRAP
+
+	// TEMPLATE FUNCTION bind (explicit return type)
+template<class _Ret,
+	class _Fun,
+	class... _Types> inline
+	typename enable_if<!is_pointer<_Fun>::value
+		&& !is_member_pointer<_Fun>::value,
+		_Bind<true, _Ret, _Fun, _Types...> >::type
+		bind(_Fun&& _Fx, _Types&&... _Args)
+	{	// bind a function object
+	return (_Bind<true, _Ret, _Fun, _Types...>(
+		_STD forward<_Fun>(_Fx), _STD forward<_Types>(_Args)...));
+	}
+
+template<class _Ret,
+	class _Rx,
+	class... _Ftypes,
+	class... _Types> inline
+	typename enable_if<!is_same<_Ret, _Rx>::value,
+		_Bind<true, _Ret, _Rx (* const)(_Ftypes...),
+			_Types...> >::type
+		bind(_Rx (*_Pfx)(_Ftypes...), _Types&&... _Args)
+	{	// bind a function pointer
+	return (_Bind<true, _Ret, _Rx (* const)(_Ftypes...), _Types...>(
+		_Pfx, _STD forward<_Types>(_Args)...));
+	}
+
+template<class _Ret,
+	class _Rx,
+	class _Farg0,
+	class... _Types> inline
+	typename enable_if<!is_same<_Ret, _Rx>::value
+		&& is_member_object_pointer<_Rx _Farg0::* const>::value,
+		_Bind<true, _Ret, _Pmd_wrap<_Rx _Farg0::*, _Rx, _Farg0>,
+			_Types...> >::type
+		bind(_Rx _Farg0::* const _Pmd, _Types&&... _Args)
+	{	// bind a wrapped member object pointer
+	return (_Bind<true, _Ret,
+		_Pmd_wrap<_Rx _Farg0::*, _Rx, _Farg0>, _Types...>(
+		_Pmd_wrap<_Rx _Farg0::*, _Rx, _Farg0>(_Pmd),
+			_STD forward<_Types>(_Args)...));
+	}
+
+#define _EXPLICIT_PMF_WRAP(CALL_OPT, X1, CV_OPT) \
+template<class _Ret, \
+	class _Rx, \
+	class _Farg0, \
+	class... _Ftypes, \
+	class... _Types> inline \
+	typename enable_if<!is_same<_Ret, _Rx>::value, \
+		_Bind<true, _Ret, \
+			_Pmf_wrap<_Rx (CALL_OPT _Farg0::*)(_Ftypes...) CV_OPT, \
+				_Rx, _Farg0, _Ftypes...>, \
+					_Types...> >::type \
+		bind(_Rx (CALL_OPT _Farg0::* const _Pmf)(_Ftypes...) CV_OPT, \
+			_Types&&... _Args) \
+	{	/* bind a wrapped CV_OPT member function pointer */ \
+	return (_Bind<true, _Ret, \
+		_Pmf_wrap<_Rx (CALL_OPT _Farg0::*)(_Ftypes...) CV_OPT, \
+			_Rx, _Farg0, _Ftypes...>, \
+		_Types...>( \
+		_Pmf_wrap<_Rx (CALL_OPT _Farg0::*)(_Ftypes...) CV_OPT, \
+			_Rx, _Farg0, _Ftypes...>(_Pmf), \
+				_STD forward<_Types>(_Args)...)); \
+	}
+
+_MEMBER_CALL_CV(_EXPLICIT_PMF_WRAP, )
+#undef _EXPLICIT_PMF_WRAP
+
+
+	// PLACEHOLDER ARGUMENTS
+		namespace placeholders {	// placeholders
+extern _CRTIMP2_PURE _Ph<1> _1;
+extern _CRTIMP2_PURE _Ph<2> _2;
+extern _CRTIMP2_PURE _Ph<3> _3;
+extern _CRTIMP2_PURE _Ph<4> _4;
+extern _CRTIMP2_PURE _Ph<5> _5;
+extern _CRTIMP2_PURE _Ph<6> _6;
+extern _CRTIMP2_PURE _Ph<7> _7;
+extern _CRTIMP2_PURE _Ph<8> _8;
+extern _CRTIMP2_PURE _Ph<9> _9;
+extern _CRTIMP2_PURE _Ph<10> _10;
+extern _CRTIMP2_PURE _Ph<11> _11;
+extern _CRTIMP2_PURE _Ph<12> _12;
+extern _CRTIMP2_PURE _Ph<13> _13;
+extern _CRTIMP2_PURE _Ph<14> _14;
+extern _CRTIMP2_PURE _Ph<15> _15;
+extern _CRTIMP2_PURE _Ph<16> _16;
+extern _CRTIMP2_PURE _Ph<17> _17;
+extern _CRTIMP2_PURE _Ph<18> _18;
+extern _CRTIMP2_PURE _Ph<19> _19;
+extern _CRTIMP2_PURE _Ph<20> _20;
+		}	// namespace placeholders
+
+namespace tr1 {	// TR1 additions
+using _STD bad_function_call;
+using _STD bind;
+using _STD function;
+using _STD is_bind_expression;
+using _STD is_placeholder;
+using _STD mem_fn;
+using _STD swap;
+
+namespace placeholders {
+	using namespace _STD placeholders;
+	}	// namespace placeholders
+}	// namespace tr1
+_STD_END
+
+namespace std {
+	// TEMPLATE STRUCT uses_allocator
+template<class _Fty,
+	class _Alloc>
+	struct uses_allocator<function<_Fty>, _Alloc>
+		: true_type
+	{	// true_type if container allocator enabled
+	};
+}	// namespace std
+
+ #pragma pop_macro("new")
+ #pragma warning(pop)
+ #pragma pack(pop)
+#endif /* RC_INVOKED */
+#endif /* _FUNCTIONAL_ */
+
+/*
+ * Copyright (c) 1992-2012 by P.J. Plauger.  ALL RIGHTS RESERVED.
+ * Consult your license regarding permissions and restrictions.
+V6.00:0009 */

@@ -1,0 +1,14 @@
+// ccomplex standard header
+#pragma once
+#ifndef _CCOMPLEX_
+#define _CCOMPLEX_
+#include <yvals.h>
+
+#include <complex>
+
+#endif /* _CCOMPLEX_ */
+
+/*
+ * Copyright (c) 1992-2013 by P.J. Plauger.  ALL RIGHTS RESERVED.
+ * Consult your license regarding permissions and restrictions.
+V6.40:0009 */

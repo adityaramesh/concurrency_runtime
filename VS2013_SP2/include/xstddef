@@ -1,0 +1,576 @@
+// xstddef standard header
+#pragma once
+#ifndef _XSTDDEF_
+#define _XSTDDEF_
+#ifndef RC_INVOKED
+#include <stdlib.h>
+#include <cstddef>
+#include <initializer_list>
+
+#include <xtr1common>
+
+ #pragma pack(push,_CRT_PACKING)
+ #pragma warning(push,3)
+ #pragma push_macro("new")
+ #undef new
+
+ #if !defined(_XSTD)
+  #define _X_STD_BEGIN	_STD_BEGIN
+  #define _X_STD_END	_STD_END
+  #define _XSTD	_STD /* LEAVE SPACE */
+ #endif /* !defined(_XSTD) */
+
+_STD_BEGIN
+		// EXCEPTION MACROS
+ #ifndef _THROWS
+ #define _THROWS(x)
+ #endif /* _THROWS */
+
+ #if _HAS_EXCEPTIONS
+ #define _TRY_BEGIN	try {
+ #define _CATCH(x)	} catch (x) {
+ #define _CATCH_ALL	} catch (...) {
+ #define _CATCH_END	}
+
+ #define _RAISE(x)	throw x
+ #define _RERAISE	throw
+
+  #define _THROW0()		throw ()
+  #define _THROW1(x)	throw (...)
+
+  #if defined(MRTDLL) && defined(_M_CEE) && !defined(_M_CEE_PURE) \
+	&& defined(_CRTBLD)
+   #define _THROW(x, y)	_should_not_throw()	/* force compile error */
+
+   #if defined(_DEBUG)
+    #define _THROW_NCEE(x, y)	\
+		_invoke_watson(__STR2WSTR(#x), __FUNCTIONW__, __FILEW__, __LINE__, 0)
+
+   #else /* defined(_DEBUG) */
+    #define _THROW_NCEE(x, y)	\
+		_invoke_watson(0, 0, 0, 0, 0)
+   #endif /* defined(_DEBUG) */
+
+  #else /* defined(MRTDLL) etc. */
+   #define _THROW(x, y)			throw x(y)
+   #define _THROW_NCEE(x, y)	throw x(y)
+  #endif /* defined(MRTDLL) etc. */
+
+ #else /* _HAS_EXCEPTIONS */
+ #define _TRY_BEGIN	{{
+ #define _CATCH(x)	} if (0) {
+ #define _CATCH_ALL	} if (0) {
+ #define _CATCH_END	}}
+
+ #if defined(_DEBUG)
+  #define _RAISE(x)	\
+	_invoke_watson(__STR2WSTR(#x), __FUNCTIONW__, __FILEW__, __LINE__, 0)
+
+ #else /* defined(_DEBUG) */
+  #define _RAISE(x)	\
+	_invoke_watson(0, 0, 0, 0, 0)
+ #endif /* defined(_DEBUG) */
+
+ #define _RERAISE
+
+ #define _THROW0()
+ #define _THROW1(x)
+ #define _THROW(x, y)		x(y)._Raise()
+ #define _THROW_NCEE(x, y)	x(y)._Raise()
+ #endif /* _HAS_EXCEPTIONS */
+
+		// MISCELLANEOUS MACROS
+#define _EMPTY_ARGUMENT		/* for empty macro argument */
+
+		// BITMASK MACROS
+ #define _BITMASK(Enum, Ty)	typedef int Ty
+ #define _BITMASK_OPS(Ty)
+
+		// TEMPLATE FUNCTION addressof
+template<class _Ty> inline
+	_Ty *addressof(_Ty& _Val) _NOEXCEPT
+	{	// return address of _Val
+	return (reinterpret_cast<_Ty *>(
+		(&const_cast<char&>(
+		reinterpret_cast<const volatile char&>(_Val)))));
+	}
+
+		// TYPE DEFINITIONS
+
+template<bool,
+	class _Ty1,
+	class _Ty2>
+	struct _If
+	{	// type is _Ty2 for assumed false
+	typedef _Ty2 type;
+	};
+
+template<class _Ty1,
+	class _Ty2>
+	struct _If<true, _Ty1, _Ty2>
+	{	// type is _Ty1 for assumed true
+	typedef _Ty1 type;
+	};
+
+template<class _Ty>
+	struct _Always_false
+	{	// false value that probably won't be optimized away
+	static const bool value = false;
+	};
+
+		//	FUNCTIONAL STUFF (from <functional>)
+		// TEMPLATE STRUCT unary_function
+template<class _Arg,
+	class _Result>
+	struct unary_function
+	{	// base class for unary functions
+	typedef _Arg argument_type;
+	typedef _Result result_type;
+	};
+
+		// TEMPLATE STRUCT binary_function
+template<class _Arg1,
+	class _Arg2,
+	class _Result>
+	struct binary_function
+	{	// base class for binary functions
+	typedef _Arg1 first_argument_type;
+	typedef _Arg2 second_argument_type;
+	typedef _Result result_type;
+	};
+
+		// TEMPLATE STRUCT plus
+template<class _Ty = void>
+	struct plus
+		: public binary_function<_Ty, _Ty, _Ty>
+	{	// functor for operator+
+	_Ty operator()(const _Ty& _Left, const _Ty& _Right) const
+		{	// apply operator+ to operands
+		return (_Left + _Right);
+		}
+	};
+
+		// TEMPLATE STRUCT minus
+template<class _Ty = void>
+	struct minus
+		: public binary_function<_Ty, _Ty, _Ty>
+	{	// functor for operator-
+	_Ty operator()(const _Ty& _Left, const _Ty& _Right) const
+		{	// apply operator- to operands
+		return (_Left - _Right);
+		}
+	};
+
+		// TEMPLATE STRUCT multiplies
+template<class _Ty = void>
+	struct multiplies
+		: public binary_function<_Ty, _Ty, _Ty>
+	{	// functor for operator*
+	_Ty operator()(const _Ty& _Left, const _Ty& _Right) const
+		{	// apply operator* to operands
+		return (_Left * _Right);
+		}
+	};
+
+		// TEMPLATE STRUCT equal_to
+template<class _Ty = void>
+	struct equal_to
+		: public binary_function<_Ty, _Ty, bool>
+	{	// functor for operator==
+	bool operator()(const _Ty& _Left, const _Ty& _Right) const
+		{	// apply operator== to operands
+		return (_Left == _Right);
+		}
+	};
+
+		// TEMPLATE STRUCT less
+template<class _Ty = void>
+	struct less
+		: public binary_function<_Ty, _Ty, bool>
+	{	// functor for operator<
+	bool operator()(const _Ty& _Left, const _Ty& _Right) const
+		{	// apply operator< to operands
+		return (_Left < _Right);
+		}
+	};
+
+		// TEMPLATE STRUCT SPECIALIZATION plus
+template<>
+	struct plus<void>
+	{	// transparent functor for operator+
+	template<class _Ty1,
+		class _Ty2>
+		auto operator()(_Ty1&& _Left, _Ty2&& _Right) const
+		-> decltype(static_cast<_Ty1&&>(_Left)
+			+ static_cast<_Ty2&&>(_Right))
+		{	// transparently apply operator+ to operands
+		return (static_cast<_Ty1&&>(_Left)
+			+ static_cast<_Ty2&&>(_Right));
+		}
+	};
+
+		// TEMPLATE STRUCT SPECIALIZATION minus
+template<>
+	struct minus<void>
+	{	// transparent functor for operator-
+	template<class _Ty1,
+		class _Ty2>
+		auto operator()(_Ty1&& _Left, _Ty2&& _Right) const
+		-> decltype(static_cast<_Ty1&&>(_Left)
+			- static_cast<_Ty2&&>(_Right))
+		{	// transparently apply operator- to operands
+		return (static_cast<_Ty1&&>(_Left)
+			- static_cast<_Ty2&&>(_Right));
+		}
+	};
+
+		// TEMPLATE STRUCT SPECIALIZATION multiplies
+template<>
+	struct multiplies<void>
+	{	// transparent functor for operator*
+	template<class _Ty1,
+		class _Ty2>
+		auto operator()(_Ty1&& _Left, _Ty2&& _Right) const
+		-> decltype(static_cast<_Ty1&&>(_Left)
+			* static_cast<_Ty2&&>(_Right))
+		{	// transparently apply operator* to operands
+		return (static_cast<_Ty1&&>(_Left)
+			* static_cast<_Ty2&&>(_Right));
+		}
+	};
+
+		// TEMPLATE STRUCT SPECIALIZATION equal_to
+template<>
+	struct equal_to<void>
+	{	// transparent functor for operator==
+	template<class _Ty1,
+		class _Ty2>
+		auto operator()(_Ty1&& _Left, _Ty2&& _Right) const
+		-> decltype(static_cast<_Ty1&&>(_Left)
+			== static_cast<_Ty2&&>(_Right))
+		{	// transparently apply operator== to operands
+		return (static_cast<_Ty1&&>(_Left)
+			== static_cast<_Ty2&&>(_Right));
+		}
+	};
+
+		// TEMPLATE STRUCT SPECIALIZATION less
+template<>
+	struct less<void>
+	{	// transparent functor for operator<
+	template<class _Ty1,
+		class _Ty2>
+		auto operator()(_Ty1&& _Left, _Ty2&& _Right) const
+		-> decltype(static_cast<_Ty1&&>(_Left)
+			< static_cast<_Ty2&&>(_Right))
+		{	// transparently apply operator< to operands
+		return (static_cast<_Ty1&&>(_Left)
+			< static_cast<_Ty2&&>(_Right));
+		}
+	};
+
+
+_STD_END
+
+#ifndef _HASH_SEQ_DEFINED
+#define _HASH_SEQ_DEFINED
+_STD_BEGIN
+	// FUNCTION _Hash_seq
+inline size_t _Hash_seq(const unsigned char *_First, size_t _Count)
+	{	// FNV-1a hash function for bytes in [_First, _First+_Count)
+ #if defined(_M_X64) || defined(_LP64) || defined(__x86_64) || defined(_WIN64)
+	static_assert(sizeof(size_t) == 8, "This code is for 64-bit size_t.");
+	const size_t _FNV_offset_basis = 14695981039346656037ULL;
+	const size_t _FNV_prime = 1099511628211ULL;
+
+ #else /* defined(_M_X64), etc. */
+	static_assert(sizeof(size_t) == 4, "This code is for 32-bit size_t.");
+	const size_t _FNV_offset_basis = 2166136261U;
+	const size_t _FNV_prime = 16777619U;
+ #endif /* defined(_M_X64), etc. */
+
+	size_t _Val = _FNV_offset_basis;
+	for (size_t _Next = 0; _Next < _Count; ++_Next)
+		{	// fold in another byte
+		_Val ^= (size_t)_First[_Next];
+		_Val *= _FNV_prime;
+		}
+
+ #if defined(_M_X64) || defined(_LP64) || defined(__x86_64) || defined(_WIN64)
+	static_assert(sizeof(size_t) == 8, "This code is for 64-bit size_t.");
+	_Val ^= _Val >> 32;
+
+ #else /* defined(_M_X64), etc. */
+	static_assert(sizeof(size_t) == 4, "This code is for 32-bit size_t.");
+ #endif /* defined(_M_X64), etc. */
+
+	return (_Val);
+	}
+
+	// TEMPLATE STRUCT _Bitwise_hash
+template<class _Kty>
+	struct _Bitwise_hash
+		: public unary_function<_Kty, size_t>
+	{	// hash functor for plain old data
+	size_t operator()(const _Kty& _Keyval) const
+		{	// hash _Keyval to size_t value by pseudorandomizing transform
+		return (_Hash_seq((const unsigned char *)&_Keyval, sizeof (_Kty)));
+		}
+	};
+
+	// TEMPLATE STRUCT hash
+template<class _Kty>
+	struct hash
+		: public _Bitwise_hash<_Kty>
+	{	// hash functor for enums
+	static const bool _Value = __is_enum(_Kty);
+	static_assert(_Value,
+		"The C++ Standard doesn't provide a hash for this type.");
+	};
+template<>
+	struct hash<bool>
+		: public _Bitwise_hash<bool>
+	{	// hash functor for bool
+	};
+
+template<>
+	struct hash<char>
+		: public _Bitwise_hash<char>
+	{	// hash functor for char
+	};
+
+template<>
+	struct hash<signed char>
+		: public _Bitwise_hash<signed char>
+	{	// hash functor for signed char
+	};
+
+template<>
+	struct hash<unsigned char>
+		: public _Bitwise_hash<unsigned char>
+	{	// hash functor for unsigned char
+	};
+
+ #if _HAS_CHAR16_T_LANGUAGE_SUPPORT
+template<>
+	struct hash<char16_t>
+		: public _Bitwise_hash<char16_t>
+	{	// hash functor for char16_t
+	};
+
+template<>
+	struct hash<char32_t>
+		: public _Bitwise_hash<char32_t>
+	{	// hash functor for char32_t
+	};
+ #endif /* _HAS_CHAR16_T_LANGUAGE_SUPPORT */
+
+ #ifdef _NATIVE_WCHAR_T_DEFINED
+template<>
+	struct hash<wchar_t>
+		: public _Bitwise_hash<wchar_t>
+	{	// hash functor for wchar_t
+	};
+ #endif /* _NATIVE_WCHAR_T_DEFINED */
+
+template<>
+	struct hash<short>
+		: public _Bitwise_hash<short>
+	{	// hash functor for short
+	};
+
+template<>
+	struct hash<unsigned short>
+		: public _Bitwise_hash<unsigned short>
+	{	// hash functor for unsigned short
+	};
+
+template<>
+	struct hash<int>
+		: public _Bitwise_hash<int>
+	{	// hash functor for int
+	};
+
+template<>
+	struct hash<unsigned int>
+		: public _Bitwise_hash<unsigned int>
+	{	// hash functor for unsigned int
+	};
+
+template<>
+	struct hash<long>
+		: public _Bitwise_hash<long>
+	{	// hash functor for long
+	};
+
+template<>
+	struct hash<unsigned long>
+		: public _Bitwise_hash<unsigned long>
+	{	// hash functor for unsigned long
+	};
+
+template<>
+	struct hash<long long>
+		: public _Bitwise_hash<long long>
+	{	// hash functor for long long
+	};
+
+template<>
+	struct hash<unsigned long long>
+		: public _Bitwise_hash<unsigned long long>
+	{	// hash functor for unsigned long long
+	};
+
+template<>
+	struct hash<float>
+		: public _Bitwise_hash<float>
+	{	// hash functor for float
+	typedef float _Kty;
+	typedef _Bitwise_hash<_Kty> _Mybase;
+
+	size_t operator()(const _Kty& _Keyval) const
+		{	// hash _Keyval to size_t value by pseudorandomizing transform
+		return (_Mybase::operator()(
+			_Keyval == 0 ? 0 : _Keyval)); // map -0 to 0
+		}
+	};
+
+template<>
+	struct hash<double>
+		: public _Bitwise_hash<double>
+	{	// hash functor for double
+	typedef double _Kty;
+	typedef _Bitwise_hash<_Kty> _Mybase;
+
+	size_t operator()(const _Kty& _Keyval) const
+		{	// hash _Keyval to size_t value by pseudorandomizing transform
+		return (_Mybase::operator()(
+			_Keyval == 0 ? 0 : _Keyval)); // map -0 to 0
+		}
+	};
+
+template<>
+	struct hash<long double>
+		: public _Bitwise_hash<long double>
+	{	// hash functor for long double
+	typedef long double _Kty;
+	typedef _Bitwise_hash<_Kty> _Mybase;
+
+	size_t operator()(const _Kty& _Keyval) const
+		{	// hash _Keyval to size_t value by pseudorandomizing transform
+		return (_Mybase::operator()(
+			_Keyval == 0 ? 0 : _Keyval)); // map -0 to 0
+		}
+	};
+
+template<class _Ty>
+	struct hash<_Ty *>
+		: public _Bitwise_hash<_Ty *>
+	{	// hash functor for _Ty *
+	};
+_STD_END
+#endif /* _HASH_SEQ_DEFINED */
+
+_STD_BEGIN
+namespace tr1 {	// TR1 ADDITIONS
+using _STD hash;
+}	// namespace tr1
+_STD_END
+
+  #if defined(MRTDLL) && defined(_CRTBLD)
+
+   #if !defined(_NATIVE_WCHAR_T_DEFINED) && defined(_M_CEE_PURE)
+extern "C++"
+
+  #else /* !defined(_NATIVE_WCHAR_T_DEFINED) etc. */
+extern "C"
+  #endif /* !defined(_NATIVE_WCHAR_T_DEFINED) etc. */
+
+	_CRTIMP __declspec(noreturn) void __cdecl _invoke_watson(
+		_In_opt_z_ const wchar_t *,
+		_In_opt_z_ const wchar_t *,
+		_In_opt_z_ const wchar_t *,
+		unsigned int,
+		uintptr_t);
+  #endif /* MRTDLL && _CRTBLD */
+
+ #ifdef _M_IX86
+
+  #ifdef _M_CEE
+#define _NON_MEMBER_CALL(FUNC, CONST_OPT) \
+	FUNC(__cdecl, CONST_OPT) \
+	FUNC(__stdcall, CONST_OPT) \
+	FUNC(__clrcall, CONST_OPT)
+#define _MEMBER_CALL(FUNC, CONST_OPT, CV_OPT) \
+	FUNC(__thiscall, CONST_OPT, CV_OPT) \
+	FUNC(__cdecl, CONST_OPT, CV_OPT) \
+	FUNC(__stdcall, CONST_OPT, CV_OPT) \
+	FUNC(__clrcall, CONST_OPT, CV_OPT)
+
+  #else /* _M_CEE */
+#define _NON_MEMBER_CALL(FUNC, CONST_OPT) \
+	FUNC(__cdecl, CONST_OPT) \
+	FUNC(__stdcall, CONST_OPT) \
+	FUNC(__fastcall, CONST_OPT)
+#define _MEMBER_CALL(FUNC, CONST_OPT, CV_OPT) \
+	FUNC(__thiscall, CONST_OPT, CV_OPT) \
+	FUNC(__cdecl, CONST_OPT, CV_OPT) \
+	FUNC(__stdcall, CONST_OPT, CV_OPT) \
+	FUNC(__fastcall, CONST_OPT, CV_OPT)
+  #endif /* _M_CEE */
+
+ #else /* _M_IX86 */
+
+  #ifdef _M_CEE
+#define _NON_MEMBER_CALL(FUNC, CONST_OPT) \
+	FUNC(__cdecl, CONST_OPT) \
+	FUNC(__clrcall, CONST_OPT)
+#define _MEMBER_CALL(FUNC, CONST_OPT, CV_OPT) \
+	FUNC(__cdecl, CONST_OPT, CV_OPT) \
+	FUNC(__clrcall, CONST_OPT, CV_OPT)
+
+  #else /* _M_CEE */
+#define _NON_MEMBER_CALL(FUNC, CONST_OPT) \
+	FUNC(__cdecl, CONST_OPT)
+#define _MEMBER_CALL(FUNC, CONST_OPT, CV_OPT) \
+	FUNC(__cdecl, CONST_OPT, CV_OPT)
+  #endif /* _M_CEE */
+ #endif /* _M_IX86 */
+
+#define _NON_MEMBER_CALL_CONST(FUNC) \
+	_NON_MEMBER_CALL(FUNC, ) \
+	_NON_MEMBER_CALL(FUNC, const)
+
+#define _MEMBER_CALL_CV(FUNC, CONST_OPT) \
+	_MEMBER_CALL(FUNC, CONST_OPT, ) \
+	_MEMBER_CALL(FUNC, CONST_OPT, const) \
+	_MEMBER_CALL(FUNC, CONST_OPT, volatile) \
+	_MEMBER_CALL(FUNC, CONST_OPT, const volatile)
+
+#define _MEMBER_CALL_CONST_CV(FUNC) \
+	_MEMBER_CALL_CV(FUNC, ) \
+	_MEMBER_CALL_CV(FUNC, const)
+
+#define _CLASS_DEFINE_CV(CLASS) \
+	CLASS(_EMPTY_ARGUMENT) \
+	CLASS(const) \
+	CLASS(volatile) \
+	CLASS(const volatile)
+
+#define _COMMA	,	/* for immediate commas in macro parameters */
+
+#define _Comma	,
+#define _EX(...)	__VA_ARGS__
+
+
+
+ #pragma pop_macro("new")
+ #pragma warning(pop)
+ #pragma pack(pop)
+#endif /* RC_INVOKED */
+#endif /* _XSTDDEF_ */
+
+/*
+ * Copyright (c) 1992-2012 by P.J. Plauger.  ALL RIGHTS RESERVED.
+ * Consult your license regarding permissions and restrictions.
+V6.00:0009 */
